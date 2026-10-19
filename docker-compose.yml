@@ -1,0 +1,24 @@
+name: mobile-app-manager-backend
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 4100
+      DATABASE_PATH: /data/manager.sqlite
+    volumes:
+      - manager_data:/data
+    ports:
+      - "127.0.0.1:${API_PORT:-3101}:4100"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+
+volumes:
+  manager_data:
