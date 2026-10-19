@@ -19,6 +19,16 @@ services:
       timeout: 5s
       retries: 8
       start_period: 10s
+    networks:
+      - default
+      - asobeast
 
 volumes:
   manager_data:
+    external: true
+    name: mobil-app-manager_manager_data
+
+networks:
+  asobeast:
+    external: true
+    name: asobeast_frontend
