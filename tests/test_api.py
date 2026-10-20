@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -82,6 +83,59 @@ def test_create_and_update_app(client: TestClient) -> None:
     )
     assert updated.status_code == 200
     assert updated.json()["status"] == "live"
+
+
+def test_maps_routes_are_session_protected(client: TestClient) -> None:
+    response = client.get("/v1/maps/jobs")
+    assert response.status_code == 401
+
+
+def test_creates_maps_job_through_service(client: TestClient) -> None:
+    client.post(
+        "/v1/auth/login",
+        json={"email": "admin@example.com", "password": "correct-password"},
+    )
+    captured: dict[str, Any] = {}
+
+    async def json_request(
+        method: str,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, object]:
+        captured.update({"method": method, "path": path, "json": json, "params": params})
+        return {"id": "4af2cabb-b7f8-4a90-a7a1-64bcc470592e", "status": "queued"}
+
+    client.app.state.maps_service.json_request = json_request
+    response = client.post(
+        "/v1/maps/jobs",
+        json={
+            "keywords": [" kahve Kadıköy "],
+            "language": "tr",
+            "depth": 1,
+            "maxTimeSeconds": 120,
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    assert captured["method"] == "POST"
+    assert captured["path"] == "/jobs"
+    assert captured["json"]["keywords"] == ["kahve Kadıköy"]
+    assert captured["json"]["max_time_seconds"] == 120
+
+
+def test_rejects_fast_maps_job_without_coordinates(client: TestClient) -> None:
+    client.post(
+        "/v1/auth/login",
+        json={"email": "admin@example.com", "password": "correct-password"},
+    )
+    response = client.post(
+        "/v1/maps/jobs",
+        json={"keywords": ["eczane"], "fastMode": True},
+    )
+    assert response.status_code == 400
 
 
 def test_root_entrypoint_starts_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:

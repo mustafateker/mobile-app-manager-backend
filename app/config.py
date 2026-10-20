@@ -18,6 +18,8 @@ class Settings(BaseModel):
     web_origin: HttpUrl = HttpUrl("http://localhost:5173")
     asobeast_base_url: HttpUrl = HttpUrl("http://127.0.0.1:3001/api/backend")
     asobeast_api_token: str = ""
+    maps_base_url: HttpUrl = HttpUrl("http://127.0.0.1:8000")
+    maps_api_key: str = ""
 
     @field_validator("node_env")
     @classmethod
@@ -48,9 +50,10 @@ def read_settings(env: Mapping[str, str] | None = None) -> Settings:
             "ASOBEAST_BASE_URL", "http://127.0.0.1:3001/api/backend"
         ),
         "asobeast_api_token": source.get("ASOBEAST_API_TOKEN", ""),
+        "maps_base_url": source.get("MAPS_BASE_URL", "http://127.0.0.1:8000"),
+        "maps_api_key": source.get("MAPS_API_KEY", ""),
     }
     return Settings.model_validate(values)
 
 
 __all__ = ["Settings", "ValidationError", "read_settings"]
-

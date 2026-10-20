@@ -34,7 +34,11 @@ docker compose up -d --build
 ```
 
 SQLite verisi Docker volume içinde kalıcı olarak saklanır. AsoBeast erişimi
-`ASOBEAST_BASE_URL` ve `ASOBEAST_API_TOKEN` ile yapılandırılır.
+`ASOBEAST_BASE_URL` ve `ASOBEAST_API_TOKEN` ile yapılandırılır. Google Maps
+tarama entegrasyonu için scraping stack'ini önce başlatın; bu servis
+`gmaps-scraping_default` ağı üzerinden `gmaps-api:8000` adresine bağlanır.
+Her iki projenin `.env` dosyasında aynı güçlü değeri sırasıyla `API_KEY` ve
+`MAPS_API_KEY` olarak kullanın.
 
 ## Test
 
