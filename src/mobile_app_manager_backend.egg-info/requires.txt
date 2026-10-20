@@ -1,0 +1,11 @@
+fastapi<1,>=0.115
+httpx<1,>=0.27
+itsdangerous<3,>=2.2
+pydantic<3,>=2.9
+python-dotenv<2,>=1.0
+uvicorn[standard]<1,>=0.32
+
+[dev]
+eval-type-backport<1,>=0.2
+pytest<9,>=8.3
+pytest-asyncio<1,>=0.24

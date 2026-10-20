@@ -14,7 +14,7 @@ services:
     ports:
       - "127.0.0.1:${API_PORT:-3101}:4100"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4100/health')"]
       interval: 10s
       timeout: 5s
       retries: 8
