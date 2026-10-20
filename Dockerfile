@@ -1,17 +1,9 @@
-FROM node:24-bookworm-slim AS build
+FROM python:3.13-slim
 WORKDIR /app
-RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY tsconfig.json ./
-COPY src src
-RUN pnpm build
-
-FROM node:24-bookworm-slim
-WORKDIR /app
-ENV NODE_ENV=production
-RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY --from=build /app/node_modules node_modules
-COPY --from=build /app/dist dist
-CMD ["node", "dist/server.js"]
+ENV NODE_ENV=production \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+COPY pyproject.toml ./
+COPY app app
+RUN pip install --no-cache-dir .
+CMD ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "4100", "--proxy-headers"]

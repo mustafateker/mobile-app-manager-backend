@@ -1,0 +1,2 @@
+"""AsoBeast integration module."""
+
