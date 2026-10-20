@@ -21,6 +21,8 @@ from app.modules.auth.controller import router as auth_router
 from app.modules.auth.service import AuthService, LoginRateLimiter
 from app.modules.dashboard.controller import router as dashboard_router
 from app.modules.dashboard.service import DashboardService
+from app.modules.maps.controller import router as maps_router
+from app.modules.maps.service import MapsService, MapsServiceError
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -28,6 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     database = Database(config.database_path)
     app_service = AppService(database)
     aso_service = AsoBeastService(str(config.asobeast_base_url), config.asobeast_api_token)
+    maps_service = MapsService(str(config.maps_base_url), config.maps_api_key)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -39,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.database = database
     app.state.app_service = app_service
     app.state.aso_service = aso_service
+    app.state.maps_service = maps_service
     app.state.auth_service = AuthService(config)
     app.state.login_rate_limiter = LoginRateLimiter()
     app.state.dashboard_service = DashboardService(app_service, aso_service)
@@ -83,13 +87,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code = 502
         return JSONResponse(status_code=status_code, content={"message": str(error)})
 
+    @app.exception_handler(MapsServiceError)
+    async def maps_error(_: Request, error: MapsServiceError) -> JSONResponse:
+        if error.status_code is None:
+            status_code = 503
+        elif 400 <= error.status_code < 500:
+            status_code = error.status_code
+        else:
+            status_code = 502
+        return JSONResponse(status_code=status_code, content={"message": str(error)})
+
     @app.exception_handler(sqlite3.IntegrityError)
     async def database_conflict(_: Request, __: sqlite3.IntegrityError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"message": "Bu slug zaten kullanılıyor."})
 
     @app.get("/health")
     async def health() -> dict[str, object]:
-        return {"status": "ok", "asobeastConfigured": aso_service.configured}
+        return {
+            "status": "ok",
+            "asobeastConfigured": aso_service.configured,
+            "mapsConfigured": maps_service.configured,
+        }
 
     app.add_middleware(
         SessionMiddleware,
@@ -111,4 +129,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(apps_router)
     app.include_router(dashboard_router)
     app.include_router(aso_router)
+    app.include_router(maps_router)
     return app

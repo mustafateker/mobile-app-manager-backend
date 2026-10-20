@@ -9,6 +9,7 @@ services:
       NODE_ENV: production
       PORT: 4100
       DATABASE_PATH: /data/manager.sqlite
+      MAPS_BASE_URL: ${MAPS_BASE_URL:-http://gmaps-api:8000}
     volumes:
       - manager_data:/data
     ports:
@@ -22,6 +23,7 @@ services:
     networks:
       - default
       - asobeast
+      - gmaps
 
 volumes:
   manager_data:
@@ -32,3 +34,6 @@ networks:
   asobeast:
     external: true
     name: asobeast_frontend
+  gmaps:
+    external: true
+    name: gmaps-scraping_default
