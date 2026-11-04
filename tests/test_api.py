@@ -67,6 +67,29 @@ def test_allows_browser_preflight_requests(client: TestClient) -> None:
     assert response.headers["access-control-allow-credentials"] == "true"
 
 
+def test_cors_allows_loopback_ip_alternative(client: TestClient) -> None:
+    response = client.options(
+        "/v1/apps/58c51b01-41f6-413b-8947-5cbf7d816f60",
+        headers={
+            "origin": "http://127.0.0.1:5173",
+            "access-control-request-method": "GET",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_login_cookie_same_site_lax(client: TestClient) -> None:
+    login = client.post(
+        "/v1/auth/login",
+        json={"email": "admin@example.com", "password": "correct-password"},
+    )
+    assert login.status_code == 200
+    set_cookie = login.headers.get("set-cookie", "")
+    assert "samesite=lax" in set_cookie.lower()
+
+
 def test_create_and_update_app(client: TestClient) -> None:
     client.post(
         "/v1/auth/login",
