@@ -23,6 +23,8 @@ from app.modules.dashboard.controller import router as dashboard_router
 from app.modules.dashboard.service import DashboardService
 from app.modules.maps.controller import router as maps_router
 from app.modules.maps.service import MapsService, MapsServiceError
+from app.modules.analytics.controller import router as analytics_router
+from app.modules.analytics.service import AnalyticsService
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -31,6 +33,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app_service = AppService(database)
     aso_service = AsoBeastService(str(config.asobeast_base_url), config.asobeast_api_token)
     maps_service = MapsService(str(config.maps_base_url), config.maps_api_key)
+    analytics_service = AnalyticsService(
+        str(config.posthog_host),
+        config.posthog_project_id,
+        config.posthog_personal_api_key,
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -43,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.app_service = app_service
     app.state.aso_service = aso_service
     app.state.maps_service = maps_service
+    app.state.analytics_service = analytics_service
     app.state.auth_service = AuthService(config)
     app.state.login_rate_limiter = LoginRateLimiter()
     app.state.dashboard_service = DashboardService(app_service, aso_service)
@@ -51,7 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def security_and_auth(request: Request, call_next):
         if (
             request.url.path.startswith("/v1/")
-            and request.url.path != "/v1/auth/login"
+            and request.url.path.rstrip("/") != "/v1/auth/login"
             and request.method != "OPTIONS"
             and request.session.get("user") != "admin"
         ):
@@ -109,17 +117,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "mapsConfigured": maps_service.configured,
         }
 
+    web_origin_str = str(config.web_origin).rstrip("/")
+    cors_origins = [web_origin_str]
+    if "localhost" in web_origin_str:
+        alt_origin = web_origin_str.replace("localhost", "127.0.0.1")
+        if alt_origin not in cors_origins:
+            cors_origins.append(alt_origin)
+    elif "127.0.0.1" in web_origin_str:
+        alt_origin = web_origin_str.replace("127.0.0.1", "localhost")
+        if alt_origin not in cors_origins:
+            cors_origins.append(alt_origin)
+
     app.add_middleware(
         SessionMiddleware,
         secret_key=config.session_secret,
         session_cookie="mam_session",
         max_age=60 * 60 * 12,
-        same_site="strict",
+        same_site=config.session_same_site,
         https_only=config.node_env == "production",
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(config.web_origin).rstrip("/")],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "Accept"],
@@ -130,4 +149,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(aso_router)
     app.include_router(maps_router)
+    app.include_router(analytics_router)
     return app
