@@ -161,6 +161,56 @@ def test_rejects_fast_maps_job_without_coordinates(client: TestClient) -> None:
     assert response.status_code == 400
 
 
+def test_creates_maps_job_with_coordinates(client: TestClient) -> None:
+    client.post(
+        "/v1/auth/login",
+        json={"email": "admin@example.com", "password": "correct-password"},
+    )
+    captured: dict[str, Any] = {}
+
+    async def json_request(
+        method: str,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, object]:
+        captured.update({"method": method, "path": path, "json": json, "params": params})
+        return {"id": "4af2cabb-b7f8-4a90-a7a1-64bcc470592e", "status": "queued"}
+
+    client.app.state.maps_service.json_request = json_request
+
+    # Test with float coordinates (e.g. Germany)
+    response = client.post(
+        "/v1/maps/jobs",
+        json={
+            "keywords": ["Cafe Berlin"],
+            "language": "de",
+            "latitude": 51.165691,
+            "longitude": 10.451526,
+            "zoom": 6,
+        },
+    )
+    assert response.status_code == 202
+    assert captured["json"]["latitude"] == "51.165691"
+    assert captured["json"]["longitude"] == "10.451526"
+
+    # Test with string coordinates with comma
+    response2 = client.post(
+        "/v1/maps/jobs",
+        json={
+            "keywords": ["Cafe Berlin"],
+            "language": "de",
+            "latitude": "52,5200",
+            "longitude": "13,4050",
+            "zoom": 12,
+        },
+    )
+    assert response2.status_code == 202
+    assert captured["json"]["latitude"] == "52.52"
+    assert captured["json"]["longitude"] == "13.405"
+
+
 def test_root_entrypoint_starts_uvicorn(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setenv("NODE_ENV", "test")

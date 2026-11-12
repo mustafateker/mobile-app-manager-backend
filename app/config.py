@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Mapping
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, ValidationError, field_validator
 
 
@@ -49,6 +50,8 @@ class Settings(BaseModel):
 
 
 def read_settings(env: Mapping[str, str] | None = None) -> Settings:
+    if env is None:
+        load_dotenv()
     source = os.environ if env is None else env
     values = {
         "node_env": source.get("NODE_ENV", "development"),
