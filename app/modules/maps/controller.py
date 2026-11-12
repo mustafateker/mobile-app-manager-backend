@@ -25,8 +25,13 @@ async def status(request: Request) -> dict[str, object]:
 
 @router.post("/jobs", status_code=202)
 async def create_job(payload: CreateMapsJobDto, request: Request) -> object:
+    body = payload.model_dump()
+    if body.get("latitude") is not None:
+        body["latitude"] = str(body["latitude"])
+    if body.get("longitude") is not None:
+        body["longitude"] = str(body["longitude"])
     return await request.app.state.maps_service.json_request(
-        "POST", "/jobs", json=payload.model_dump()
+        "POST", "/jobs", json=body
     )
 
 
