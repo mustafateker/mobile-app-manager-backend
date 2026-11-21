@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def to_camel(value: str) -> str:
@@ -85,4 +85,42 @@ class AnalyticsOverviewDto(BaseModel):
     recent_events: List[LiveEventDto]
     behavior_summary: str
     time_range: str
+
+
+class TrinkowUserPremiumDto(BaseModel):
+    active: bool
+    lifetime: bool = False
+    expires_at: Optional[str] = None
+    product: Optional[str] = None
+    store: Optional[str] = None
+    environment: Optional[str] = None
+
+
+class TrinkowUserDto(BaseModel):
+    id: str
+    email: str
+    provider: str
+    created_at: Optional[str] = None
+    is_today: bool = False
+    suspended: bool = False
+    premium: TrinkowUserPremiumDto
+
+
+class TrinkowUsersListDto(BaseModel):
+    items: List[TrinkowUserDto]
+    total_users: int
+    today_users: int
+    premium_users: int
+    suspended_users: int
+    page: int
+    limit: int
+    total_pages: int
+
+
+class UpdateTrinkowUserStatusDto(BaseModel):
+    askida: bool
+
+
+class DeleteTrinkowUserDto(BaseModel):
+    admin_password: str = Field(alias="adminPassword")
 
