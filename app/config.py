@@ -25,6 +25,8 @@ class Settings(BaseModel):
     posthog_host: HttpUrl = HttpUrl("https://eu.i.posthog.com")
     posthog_project_id: str = "333929"
     posthog_personal_api_key: str = ""
+    trinkow_api_base_url: HttpUrl = HttpUrl("https://trinkow-backend.triworkster.com")
+    trinkow_admin_token: str = ""
 
     @field_validator("node_env")
     @classmethod
@@ -71,6 +73,10 @@ def read_settings(env: Mapping[str, str] | None = None) -> Settings:
         "posthog_host": source.get("POSTHOG_HOST", "https://eu.i.posthog.com"),
         "posthog_project_id": source.get("POSTHOG_PROJECT_ID", "333929"),
         "posthog_personal_api_key": source.get("POSTHOG_PERSONAL_API_KEY", ""),
+        "trinkow_api_base_url": source.get(
+            "TRINKOW_API_BASE_URL", "https://trinkow-backend.triworkster.com"
+        ),
+        "trinkow_admin_token": source.get("TRINKOW_ADMIN_TOKEN", ""),
     }
     return Settings.model_validate(values)
 

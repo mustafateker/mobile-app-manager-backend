@@ -25,6 +25,11 @@ from app.modules.maps.controller import router as maps_router
 from app.modules.maps.service import MapsService, MapsServiceError
 from app.modules.analytics.controller import router as analytics_router
 from app.modules.analytics.service import AnalyticsService
+from app.modules.analytics.trinkow_admin_service import (
+    TrinkowAdminAuthError,
+    TrinkowAdminError,
+    TrinkowAdminService,
+)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,6 +42,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         str(config.posthog_host),
         config.posthog_project_id,
         config.posthog_personal_api_key,
+    )
+    trinkow_admin_service = TrinkowAdminService(
+        str(config.trinkow_api_base_url),
+        config.trinkow_admin_token,
+        config.admin_password,
     )
 
     @asynccontextmanager
@@ -51,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.aso_service = aso_service
     app.state.maps_service = maps_service
     app.state.analytics_service = analytics_service
+    app.state.trinkow_admin_service = trinkow_admin_service
     app.state.auth_service = AuthService(config)
     app.state.login_rate_limiter = LoginRateLimiter()
     app.state.dashboard_service = DashboardService(app_service, aso_service)
@@ -59,7 +70,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def security_and_auth(request: Request, call_next):
         if (
             request.url.path.startswith("/v1/")
-            and request.url.path.rstrip("/") != "/v1/auth/login"
+            and request.url.path.rstrip("/") not in ("/v1/auth/login", "/v1/auth/logout")
             and request.method != "OPTIONS"
             and request.session.get("user") != "admin"
         ):
@@ -105,6 +116,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code = 502
         return JSONResponse(status_code=status_code, content={"message": str(error)})
 
+    @app.exception_handler(TrinkowAdminAuthError)
+    async def trinkow_admin_auth_error(_: Request, error: TrinkowAdminAuthError) -> JSONResponse:
+        return JSONResponse(status_code=401, content={"message": str(error)})
+
+    @app.exception_handler(TrinkowAdminError)
+    async def trinkow_admin_error(_: Request, error: TrinkowAdminError) -> JSONResponse:
+        return JSONResponse(status_code=error.status_code, content={"message": str(error)})
+
     @app.exception_handler(sqlite3.IntegrityError)
     async def database_conflict(_: Request, __: sqlite3.IntegrityError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"message": "Bu slug zaten kullanılıyor."})
@@ -128,6 +147,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if alt_origin not in cors_origins:
             cors_origins.append(alt_origin)
 
+    allow_origin_regex = (
+        r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$"
+        if config.node_env == "development"
+        else None
+    )
+
     app.add_middleware(
         SessionMiddleware,
         secret_key=config.session_secret,
@@ -139,9 +164,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
+        allow_origin_regex=allow_origin_regex,
         allow_credentials=True,
         allow_methods=["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Accept"],
+        allow_headers=["*"],
     )
 
     app.include_router(auth_router)
